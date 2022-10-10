@@ -8,7 +8,7 @@ from torchvision import transforms
 
 
 class MVTecDataset(torch.utils.data.Dataset):
-    def __init__(self, root, category, input_size, is_train=True):
+    def __init__(self, root, category, input_size, is_train=True, is_train_ng=False):
         self.image_transform = transforms.Compose(
             [
                 transforms.Resize(input_size),
@@ -20,6 +20,10 @@ class MVTecDataset(torch.utils.data.Dataset):
             self.image_files = glob(
                 os.path.join(root, category, "train", "good", "*.png")
             )
+        elif is_train_ng:
+            self.image_files = glob(
+                os.path.join(root, category, "train_fake_ng", "fake_ng", "*.png")
+            )            
         else:
             self.image_files = glob(os.path.join(root, category, "test", "*", "*.png"))
             self.target_transform = transforms.Compose(
@@ -37,7 +41,7 @@ class MVTecDataset(torch.utils.data.Dataset):
         if self.is_train:
             return image
         else:
-            if os.path.dirname(image_file).endswith("good"):
+            if os.path.dirname(image_file).endswith("good") or os.path.dirname(image_file).endswith("fake_ng"):
                 target = torch.zeros([1, image.shape[-2], image.shape[-1]])
             else:
                 target = Image.open(

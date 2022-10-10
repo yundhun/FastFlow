@@ -42,8 +42,9 @@ class FastFlow(nn.Module):
         backbone_name,
         flow_steps,
         input_size,
+        sd_dim,
         conv3x3_only=False,
-        hidden_ratio=1.0,
+        hidden_ratio=1.0,        
     ):
         super(FastFlow, self).__init__()
         assert (
@@ -64,10 +65,23 @@ class FastFlow(nn.Module):
             channels = self.feature_extractor.feature_info.channels()
             scales = self.feature_extractor.feature_info.reduction()
 
+            channels_sd = [0,0,0]
+            for d in sd_dim:
+                d_no = int(d.split('-')[0])
+                channels_sd[d_no] = channels_sd[d_no] + 1
+
+            print("==========[channels]==========")
+            #print('channels.shape:',channels.shape)
+            print(channels)
+            print(channels_sd)
+            print("==========[scales  ]==========")
+            #print('scales.shape:',scales.shape)
+            print(scales)
+
             # for transformers, use their pretrained norm w/o grad
             # for resnets, self.norms are trainable LayerNorm
             self.norms = nn.ModuleList()
-            for in_channels, scale in zip(channels, scales):
+            for in_channels, scale in zip(channels_sd, scales):
                 self.norms.append(
                     nn.LayerNorm(
                         [in_channels, int(input_size / scale), int(input_size / scale)],
@@ -79,7 +93,7 @@ class FastFlow(nn.Module):
             param.requires_grad = False
 
         self.nf_flows = nn.ModuleList()
-        for in_channels, scale in zip(channels, scales):
+        for in_channels, scale in zip(channels_sd, scales):
             self.nf_flows.append(
                 nf_fast_flow(
                     [in_channels, int(input_size / scale), int(input_size / scale)],
@@ -90,7 +104,7 @@ class FastFlow(nn.Module):
             )
         self.input_size = input_size
 
-    def forward(self, x):
+    def forward(self, x, sd_dim):
         self.feature_extractor.eval()
         if isinstance(
             self.feature_extractor, timm.models.vision_transformer.VisionTransformer
@@ -130,6 +144,24 @@ class FastFlow(nn.Module):
             features = [x]
         else:
             features = self.feature_extractor(x)
+            layer_0_dim = []
+            layer_1_dim = []
+            layer_2_dim = []
+            for d in sd_dim:
+                layer_no = int(d.split('-')[0])
+                feature_idx = int(d.split('-')[1])
+                if(layer_no==0): layer_0_dim = layer_0_dim + [feature_idx]
+                if(layer_no==1): layer_1_dim = layer_1_dim + [feature_idx]
+                if(layer_no==2): layer_2_dim = layer_2_dim + [feature_idx]
+            #print('layer_0_dim:',layer_0_dim)
+            #print('layer_1_dim:',layer_1_dim)
+            #print('layer_2_dim:',layer_2_dim)
+            features[0] = features[0][:,layer_0_dim,:,:]
+            features[1] = features[1][:,layer_1_dim,:,:]
+            features[2] = features[2][:,layer_2_dim,:,:]
+            #print('features[0].shape:',features[0].shape)
+            #print('features[1].shape:',features[1].shape)
+            #print('features[2].shape:',features[2].shape)
             features = [self.norms[i](feature) for i, feature in enumerate(features)]
 
         loss = 0

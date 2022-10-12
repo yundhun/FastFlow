@@ -31,7 +31,7 @@ def defetcGen(dataset_path, class_name):
 		cv2.imwrite(dest_file_dir, img1)
 		print('src:', source_file_dir, 'dest:', dest_file_dir ,'shape', img1.shape)	
 
-def get_sd(backbone_name, n_feat_sd, train_loader, train_ng_loader):
+def get_sd(backbone_name, n_feat_sd, sd_dim_full, train_loader, train_ng_loader):
 	#3. get features
 	feature_extractor = timm.create_model(backbone_name,pretrained=True,features_only=True,out_indices=[1, 2, 3])	
 	channels = feature_extractor.feature_info.channels()
@@ -94,6 +94,11 @@ def get_sd(backbone_name, n_feat_sd, train_loader, train_ng_loader):
 	sd_list = []
 	for x in sd_dic:
 		sd_list = sd_list + [x]
+		
+	if( len(sd_list) < n_feat_sd ):
+		for xx in sd_list:
+			sd_dim_full.remove(xx)
+		sd_list = random.sample(sd_dim_full, n_feat_sd - len(sd_list))
 	
 	print('unsorted dim:',sd_list)
 	sd2 = sd_list[:n_feat_sd]

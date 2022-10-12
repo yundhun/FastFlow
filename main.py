@@ -10,6 +10,9 @@ import dataset
 import fastflow
 import utils
 import sd
+import random
+import time
+import wandb
 
 def build_train_data_loader(args, config):
     train_dataset = dataset.MVTecDataset(
@@ -86,8 +89,9 @@ def train_one_epoch(dataloader, model, optimizer, epoch, sd_dim):
     model.train()
     loss_meter = utils.AverageMeter()
     for step, data in enumerate(dataloader):
+        start_time = time.time()
         # forward
-        data = data.to("mps") #data = data.cuda()
+        data = data.to(const.TORCH_DEVICE) #data = data.cuda()
         ret = model(data, sd_dim)
         loss = ret["loss"]
         # backward
@@ -102,13 +106,15 @@ def train_one_epoch(dataloader, model, optimizer, epoch, sd_dim):
                     epoch + 1, step + 1, loss_meter.val, loss_meter.avg
                 )
             )
+            wandb.log({'elapsed_time per epoch':time.time()-start_time})
+            start_time = time.time()
 
 
 def eval_once(dataloader, model, sd_dim):
     model.eval()
     auroc_metric = metrics.ROC_AUC()
     for data, targets in dataloader:
-        data, targets = data.to("mps"), targets.to("mps") #data, targets = data.cuda(), targets.cuda()
+        data, targets = data.to(const.TORCH_DEVICE), targets.to(const.TORCH_DEVICE) #data, targets = data.cuda(), targets.cuda()
         with torch.no_grad():
             ret = model(data, sd_dim)
         outputs = ret["anomaly_map"].cpu().detach()
@@ -117,8 +123,9 @@ def eval_once(dataloader, model, sd_dim):
         auroc_metric.update((outputs, targets))
     auroc = auroc_metric.compute()
     print("AUROC: {}".format(auroc))
+    wandb.log({'auroc':auroc})
 
-def train(args):
+def train(args, sd_dim_size, dr_type):
     os.makedirs(const.CHECKPOINT_DIR, exist_ok=True)
     checkpoint_dir = os.path.join(
         const.CHECKPOINT_DIR, "exp%d" % len(os.listdir(const.CHECKPOINT_DIR))
@@ -130,16 +137,32 @@ def train(args):
     train_dataloader = build_train_data_loader(args, config)
     test_dataloader = build_test_data_loader(args, config)
 
+    #[64, 128, 256]
+    sd_dim_full = []
+    for ii range(64):
+        sd_dim_full = sd_dim_full + ['0-'+str(ii)]
+    for ii range(128):
+        sd_dim_full = sd_dim_full + ['1-'+str(ii)]
+    for ii range(256):
+        sd_dim_full = sd_dim_full + ['2-'+str(ii)]        
+    
     #Statistical Dimensionality Reduction
-    #sd.defetcGen(args.data, args.category)
-    #train_ng_dataloader = build_train_ng_data_loader(args,config)
-    #sd_dim = sd.get_sd(config["backbone_name"], 100, train_dataloader, train_ng_dataloader)
-    sd_dim = ['0-0', '0-10', '0-13', '0-14', '0-15', '0-16', '0-17', '0-18', '0-19', '0-2', '0-20', '0-21', '0-23', '0-24', '0-25', '0-26', '0-27', '0-29', '0-31', '0-33', '0-34', '0-35', '0-37', '0-38', '0-4', '0-41', '0-42', '0-44', '0-45', '0-46', '0-47', '0-48', '0-5', '0-51', '0-52', '0-53', '0-54', '0-55', '0-56', '0-57', '0-58', '0-59', '0-6', '0-60', '0-61', '0-62', '0-7', '0-8', '0-9', '1-102', '1-105', '1-107', '1-108', '1-109', '1-110', '1-113', '1-116', '1-120', '1-121', '1-18', '1-20', '1-21', '1-24', '1-26', '1-29', '1-32', '1-39', '1-41', '1-48', '1-49', '1-5', '1-54', '1-7', '1-76', '1-85', '1-88', '1-9', '1-98', '1-99', '2-111', '2-123', '2-130', '2-132', '2-140', '2-163', '2-180', '2-190', '2-2', '2-209', '2-210', '2-214', '2-217', '2-226', '2-238', '2-252', '2-27', '2-43', '2-52', '2-53', '2-6']
+    if dr_type == 'SD' :
+        if sd_dim_size == 100:
+            sd.defetcGen(args.data, args.category)
+        if sd_dim_size < 256:
+            train_ng_dataloader = build_train_ng_data_loader(args,config)
+            sd_dim = sd.get_sd(config["backbone_name"], sd_dim_size, train_dataloader, train_ng_dataloader)
+        if sd_dim_size == 256:
+            sd_dim = sd_dim_full
+    elif dr_type == 'RD' :
+        sd_dim = random.sample(sd_dim_full,sd_dim_size)
+          
     
     model = build_model(config, sd_dim)
     optimizer = build_optimizer(model)
 
-    model.to("mps") #model.cuda()
+    model.to(const.TORCH_DEVICE) #model.cuda()
 
     for epoch in range(const.NUM_EPOCHS):
         train_one_epoch(train_dataloader, model, optimizer, epoch, sd_dim)
@@ -162,7 +185,7 @@ def evaluate(args):
     checkpoint = torch.load(args.checkpoint)
     model.load_state_dict(checkpoint["model_state_dict"])
     test_dataloader = build_test_data_loader(args, config)
-    model.to("mps") #model.cuda()
+    model.to(const.TORCH_DEVICE) #model.cuda()
     eval_once(test_dataloader, model)
 
 
@@ -190,7 +213,9 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    if args.eval:
-        evaluate(args)
-    else:
-        train(args)
+    for sd_dim_size in [100,128,200,256]:
+        wandb.init(project=args.category, name=args.category + str(sd_dim_size) + '(sd)')
+        if args.eval:
+            evaluate(args)
+        else:
+            train(args, sd_dim_size, const.DR_TYPE)

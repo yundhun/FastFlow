@@ -86,10 +86,10 @@ def build_optimizer(model):
 
 
 def train_one_epoch(dataloader, model, optimizer, epoch, sd_dim):
+    start_time = time.time()
     model.train()
     loss_meter = utils.AverageMeter()
     for step, data in enumerate(dataloader):
-        start_time = time.time()
         # forward
         data = data.to(const.TORCH_DEVICE) #data = data.cuda()
         ret = model(data, sd_dim)

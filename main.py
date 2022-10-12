@@ -214,7 +214,7 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     for sd_dim_size in [100,128,200,256]:
-        wandb.init(project=args.category, name=args.category + str(sd_dim_size) + '(sd)')
+        wandb.init(project='fastflow-'+args.category, name=args.category + str(sd_dim_size) + '(sd)')
         if args.eval:
             evaluate(args)
         else:

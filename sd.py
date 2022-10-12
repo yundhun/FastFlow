@@ -5,6 +5,7 @@ import scipy
 import numpy
 import timm
 import dataset
+import constants as const
 
 def defetcGen(dataset_path, class_name):
 	#1. simple defect generation
@@ -35,7 +36,7 @@ def get_sd(backbone_name, n_feat_sd, train_loader, train_ng_loader):
 	feature_extractor = timm.create_model(backbone_name,pretrained=True,features_only=True,out_indices=[1, 2, 3])	
 	channels = feature_extractor.feature_info.channels()
 	scales = feature_extractor.feature_info.reduction()
-	model = feature_extractor.to('mps')	
+	model = feature_extractor.to(const.TORCH_DEVICE)	
 	model.eval()
 
 	train_dataiter = iter(train_loader)
@@ -46,8 +47,8 @@ def get_sd(backbone_name, n_feat_sd, train_loader, train_ng_loader):
 	for x in range(len(train_loader)):
 		inputs1 = next(train_dataiter)
 		inputs2 = next(fake_ng_train_dataiter)[0]
-		inputs1 = inputs1.to('mps')
-		inputs2 = inputs2.to('mps')
+		inputs1 = inputs1.to(const.TORCH_DEVICE)
+		inputs2 = inputs2.to(const.TORCH_DEVICE)
 		print('c.feature_sd:', n_feat_sd, 'inputs1.shape:', inputs1.shape)#, 'features1.shape:',features1.shape)
 		print('c.feature_sd:', n_feat_sd, 'inputs2.shape:', inputs2.shape)#, 'features2.shape:',features2.shape)
 		features1 = model(inputs1)

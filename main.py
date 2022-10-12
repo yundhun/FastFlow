@@ -139,11 +139,11 @@ def train(args, sd_dim_size, dr_type):
 
     #[64, 128, 256]
     sd_dim_full = []
-    for ii range(64):
+    for ii in range(64):
         sd_dim_full = sd_dim_full + ['0-'+str(ii)]
-    for ii range(128):
+    for ii in range(128):
         sd_dim_full = sd_dim_full + ['1-'+str(ii)]
-    for ii range(256):
+    for ii in range(256):
         sd_dim_full = sd_dim_full + ['2-'+str(ii)]        
     
     #Statistical Dimensionality Reduction

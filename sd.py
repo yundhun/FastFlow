@@ -6,7 +6,6 @@ import numpy
 import timm
 import dataset
 
-'''
 def defetcGen(dataset_path, class_name):
 	#1. simple defect generation
 	data_dir_train_good = os.path.join(dataset_path, class_name, 'train/good')
@@ -30,7 +29,6 @@ def defetcGen(dataset_path, class_name):
 		img1[x2:(x2+w),y2:(y2+h),:] = tmp
 		cv2.imwrite(dest_file_dir, img1)
 		print('src:', source_file_dir, 'dest:', dest_file_dir ,'shape', img1.shape)	
-'''
 
 def get_sd(backbone_name, n_feat_sd, train_loader, train_ng_loader):
 	#3. get features

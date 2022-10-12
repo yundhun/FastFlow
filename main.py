@@ -152,7 +152,7 @@ def train(args, sd_dim_size, dr_type):
             sd.defetcGen(args.data, args.category)
         if sd_dim_size < 256:
             train_ng_dataloader = build_train_ng_data_loader(args,config)
-            sd_dim = sd.get_sd(config["backbone_name"], sd_dim_size, train_dataloader, train_ng_dataloader)
+            sd_dim = sd.get_sd(config["backbone_name"], sd_dim_size, sd_dim_full, train_dataloader, train_ng_dataloader)
         if sd_dim_size == 256:
             sd_dim = sd_dim_full
     elif dr_type == 'RD' :
